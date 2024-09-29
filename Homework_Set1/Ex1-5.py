@@ -95,7 +95,7 @@ def Simulation(day):
         elif current_docks == 0:
             print(f"Ship {ship_id} has to wait (queue).")
             queue.append(ship_id)
-            ship.waited = True  # Mark that the ship waited
+            ship.waited = True  
             return
         ship.unload_start = current_time
         ship.departure()
@@ -129,7 +129,7 @@ def Simulation(day):
     k = 0
     while event_queue and current_time < limit:
         n += 1
-        current_time, current_event = heapq.heappop(event_queue) # Process next event
+        current_time, current_event = heapq.heappop(event_queue) 
         #print(current_time)
         if current_event.event_type == 'arrival':
             ship_arrival(current_event.ship_id, current_time)
@@ -152,7 +152,7 @@ def Simulation(day):
     return avg_waiting_time, max_waiting_time
 
 
-# Run the simulation for 90 days
+
 current_docks = 2
 avg_wait, max_wait = Simulation(90)
 print(f"Average waiting time: {avg_wait:.2f} hours")
