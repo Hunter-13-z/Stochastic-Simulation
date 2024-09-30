@@ -14,21 +14,15 @@ generate_normal = function(n){
   Y1 = generate_geo(n)
   Y2 = generate_geo(n)
   
-  
   Z = Y1[Y2 >= (Y1 - 1)^2 / 2]
-  
-  # Step 4: Ensure we have at least n normal samples (in case some are rejected)
   while (length(Z) < n) {
-    # Generate more Y1 and Y2 if necessary
+    # Generate more Y1 and Y2 
     Y1 = generate_geo(n)
     Y2 = generate_geo(n)
     
     Z = c(Z, Y1[Y2 >= (Y1 - 1)^2 / 2])
   }
-  
- 
   Z = Z[1:n]
-  
   U = runif(n)
   Z[U <= 0.5] = -Z[U <= 0.5]
   
@@ -57,19 +51,24 @@ generate_inverse_gaussian = function(n, mu, lambda) {
   return(inverse_gaussian_samples)
 }
 
-n = 10000
+n = 100000
 #normal = generate_noraml(n)
 inv_gaussian = generate_inverse_gaussian(n, mu, lambda)
 
-#hist(normal, breaks = 50, probability = TRUE, 
-    # main = "Histogram of Simulated Normal Random Variables",
-    # xlab = "X", col = "lightblue", border = "black")
 
+# Plot the histogram of the generated inverse Gaussian samples
 hist(inv_gaussian, breaks = 50, probability = TRUE, 
-     main = "Histogram of Simulated inverse_gaussian Random Variables",
+     main = "Histogram of Simulated Inverse Gaussian Variables",
      xlab = "X", col = "lightgreen", border = "black")
 
+# Add the theoretical density curve for comparison
+x_vals = seq(0, max(inv_gaussian), length.out = 1000)
+theoretical_density = sqrt(lambda / (2 * pi * x_vals^3)) * exp(-lambda * (x_vals - mu)^2 / (2 * mu^2 * x_vals))
+lines(x_vals, theoretical_density, col = "red", lwd = 2)
 
+# Add a legend
+legend("topright", legend = c("Simulated Values", "Theoretical Density"),
+       col = c("lightgreen", "red"), lwd = 2)
 
 mean_X = mean(inv_gaussian)
 var_X = var(inv_gaussian)
