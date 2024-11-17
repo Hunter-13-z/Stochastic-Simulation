@@ -1,6 +1,11 @@
 import numpy as np
 import heapq
 import scipy.special as sp
+import scipy.stats as stats 
+
+current_docks = 2
+cycles = []  
+waiting_times = []
 
 '''
 Function to draw from a Weibull distribution with a mean of 1.25
@@ -70,13 +75,13 @@ class Event:
         self.time = time
         self.ship_id = ship_id
 
-def Simulation(day):
-    limit = day * 24  
-    global current_docks
+def SimulationWithRegeneration(day):
+    global current_docks,cycles, waiting_times
+    limit = day * 24  # Total simulation time in hours
     event_queue = []
     ships = []
-    waiting_times = []
-    queue = []  # Queue for ships 
+    
+    queue = []  # Queue for ships
     current_time = 0
 
     def schedule_event(event_type, event_time, ship_id):
@@ -86,29 +91,28 @@ def Simulation(day):
         global current_docks
         ship = ships[ship_id]
         if current_docks == 2:
-            ship.unload_time = generate_normal(1)[0]*24 / 2
+            ship.unload_time = generate_normal(1)[0] * 24 / 2
             current_docks = 0
             ship.double = True
         elif current_docks == 1:
-            ship.unload_time = generate_normal(1)[0]*24
+            ship.unload_time = generate_normal(1)[0] * 24
             current_docks -= 1
         elif current_docks == 0:
-            print(f"Ship {ship_id} has to wait (queue).")
             queue.append(ship_id)
-            ship.waited = True  
+            ship.waited = True
             return
         ship.unload_start = current_time
         ship.departure()
         schedule_event('departure', ship.departure_time, ship_id)
 
-    def ship_departure(ship_id, current_tim):
-        global current_docks
+    def ship_departure(ship_id, current_time):
+        global current_docks, cycles 
         ship = ships[ship_id]
-        
+
         if ship.waited:
             waiting_time = ship.unload_start - ship.arrival_time
             waiting_times.append(waiting_time)
-        
+
         if ship.double:
             current_docks = 2
         else:
@@ -117,20 +121,26 @@ def Simulation(day):
         # Process the next ship in the queue, if any
         if queue:
             next_ship_id = queue.pop(0)
-            ship_arrival(next_ship_id,current_time)
+            ship_arrival(next_ship_id, current_time)
+
+        
+        if current_docks == 2 and not queue and len(waiting_times) !=0 :            
+            cycles.append(sum(waiting_times)/len(waiting_times))
+            waiting_times.clear()
 
     # Schedule the first ship arrival
     first_arrival = draw_weibull(1)[0] * 24
     ships.append(Ship(first_arrival))
     schedule_event('arrival', first_arrival, 0)
 
-    # Main simulation loop
+    
     n = 0
-    k = 0
+    last_event_time = 0
     while event_queue and current_time < limit:
         n += 1
-        current_time, current_event = heapq.heappop(event_queue) 
-        #print(current_time)
+        current_time, current_event = heapq.heappop(event_queue)
+        last_event_time = current_time
+
         if current_event.event_type == 'arrival':
             ship_arrival(current_event.ship_id, current_time)
             # Schedule the next ship arrival
@@ -141,20 +151,27 @@ def Simulation(day):
         elif current_event.event_type == 'departure':
             ship_departure(current_event.ship_id, current_time)
 
-        if current_docks ==2: k+=1
 
+    return cycles
 
-    #print(n)
-    #print(k)
-    print(len(ships))
-    avg_waiting_time = np.mean(waiting_times) if waiting_times else 0
-    max_waiting_time = np.max(waiting_times) if waiting_times else 0
-    return avg_waiting_time, max_waiting_time
+def SimulationWithRegenerativeMethod(days):
+    cycles = SimulationWithRegeneration(days)
 
+    mean_wait = np.mean(cycles)
+    n = len(cycles)
+    std_dev = np.std(cycles, ddof=1)  
+    standard_error = std_dev / np.sqrt(n)
 
+    # Calculate 95% confidence interval using a t-distribution
+    t_critical = stats.t.ppf(0.975, df=n - 1)  # Two-tailed t-distribution with n-1 degrees of freedom
+    margin_of_error = t_critical * standard_error
+    lower_bound = mean_wait - margin_of_error
+    upper_bound = mean_wait + margin_of_error
 
-current_docks = 2
-avg_wait, max_wait = Simulation(90)
+    return mean_wait, lower_bound, upper_bound
 
-print(f"Average waiting time: {avg_wait:.2f} hours")
-print(f"Max waiting time: {max_wait:.2f} hours")
+days = 10000  # Total simulation days
+mean_wait, ci_lower, ci_upper = SimulationWithRegenerativeMethod(days)
+
+print(f"Average queue length: {mean_wait:.2f}")
+print(f"95% confidence interval: ({ci_lower:.2f}, {ci_upper:.2f})")
